@@ -25,9 +25,10 @@ import (
 
 var (
 	typeCacheMutex sync.RWMutex
+	//核心数据结构,保存了类型->编码器函数的映射关系
 	typeCache      = make(map[typekey]*typeinfo)
 )
-
+//储存了编码解码器函数
 type typeinfo struct {
 	decoder    decoder
 	decoderErr error // error from makeDecoder
@@ -79,17 +80,20 @@ func cachedTypeInfo(typ reflect.Type, tags tags) *typeinfo {
 	info := typeCache[typekey{typ, tags}]
 	typeCacheMutex.RUnlock()
 	if info != nil {
+		//如果这个map里已经存了这一个映射关系,就直接返回
 		return info
 	}
 	// not in the cache, need to generate info for this type.
+	//如果不存在这个映射关系,就需要去生成一个这样的关系
 	typeCacheMutex.Lock()
 	defer typeCacheMutex.Unlock()
+	//需要注意一下,在多线程的环境下,有可能多个线程同时调用到这个方法,所以当进入cachedTypeInfo1是需要去判断是否已经被别的线程先创建了.
 	return cachedTypeInfo1(typ, tags)
 }
 
 func cachedTypeInfo1(typ reflect.Type, tags tags) *typeinfo {
 	key := typekey{typ, tags}
-	info := typeCache[key]
+	info := typeCache[key]//这里验证是不是被别的线程创建了,看似多余的步骤,其实有深意.
 	if info != nil {
 		// another goroutine got the write lock first
 		return info
@@ -98,6 +102,7 @@ func cachedTypeInfo1(typ reflect.Type, tags tags) *typeinfo {
 	// if the generator tries to lookup itself, it will get
 	// the dummy value and won't call itself recursively.
 	info = new(typeinfo)
+	//这里先创建一个空的值来填充这个类型,避免遇到一些递归定义的数据结构,形成死循环
 	typeCache[key] = info
 	info.generate(typ, tags)
 	return info
@@ -107,7 +112,7 @@ type field struct {
 	index int
 	info  *typeinfo
 }
-
+//
 func structFields(typ reflect.Type) (fields []field, err error) {
 	lastPublic := lastPublicField(typ)
 	for i := 0; i < typ.NumField(); i++ {

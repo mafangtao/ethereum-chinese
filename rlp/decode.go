@@ -147,7 +147,7 @@ var (
 	decoderInterface = reflect.TypeOf(new(Decoder)).Elem()
 	bigInt           = reflect.TypeOf(big.Int{})
 )
-
+//根据类型反射来分配解码器函数
 func makeDecoder(typ reflect.Type, tags tags) (dec decoder, err error) {
 	kind := typ.Kind()
 	switch {
@@ -380,6 +380,7 @@ func decodeByteArray(s *Stream, val reflect.Value) error {
 	return nil
 }
 
+//这个函数定义了结构体的编码方式,通过structFields得到所有的字段的编码器,然后遍历所有的字段,每个字段调用起编码器方法
 func makeStructDecoder(typ reflect.Type) (decoder, error) {
 	fields, err := structFields(typ)
 	if err != nil {
